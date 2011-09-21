@@ -2,7 +2,7 @@ import numpy as np
 from scipy.misc import factorial
 
 
-def gamma_hrf(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
+def gamma(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
     r"""A gamma function hrf model, with two parameters, based on
     [Boynton1996]_
 
@@ -55,18 +55,18 @@ def gamma_hrf(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
     # instead implement this in units of sampling interval (pushing the time
     # aspect to the higher level)?
     if type(n) is not int:
-        print ('gamma_hrf received unusual input, converting n from %s to %i'
+        print ('fmri.hrf.gamma received unusual input, converting n from %s to %i'
                % (str(n), int(n)))
 
         n = int(n)
 
     #Prevent negative delta values:
     if delta < 0:
-        raise ValueError('in gamma_hrf, delta cannot be smaller than 0')
+        raise ValueError('in fmri.hrf.gamma, delta cannot be smaller than 0')
 
     #Prevent cases in which the delta is larger than the entire hrf:
     if delta > duration:
-        e_s = 'in gamma_hrf, delta cannot be larger than the duration'
+        e_s = 'in fmri.hrf.gamma, delta cannot be larger than the duration'
         raise ValueError(e_s)
 
     t_max = duration - delta
@@ -80,9 +80,50 @@ def gamma_hrf(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
 
     return A * h / max(h)
 
+def diff_of_gammas(duration, delta=2.0, A1=1.0, tau1=1.1, n1=5,
+                   A2=0.4, tau2=0.9, n2=12, Fs=1.0):
+    """
 
-def polonsky_hrf(A, B, tau1, f1, tau2, f2, t_max, Fs=1.0):
-    r""" HRF based on Polonsky (2000):
+    HRF function based on two gammas, one for the upshoot and one for the
+    subsequent undershoot. Based loosely on Glover (1999). Note that this
+    implementation is literally a difference of two gamma functions, with one
+    common delay.
+
+    Parameters
+    ----------
+
+    duration: float
+        The length of the HRF produced, in units of 1/Fs
+
+    delta: float
+        The hemodynamic delay, in units of 1/Fs
+
+    A1, A2: float, optional
+       These parameterize the amplitude of the first and second gamma,
+       respectively.
+
+    tau1, tau2: float, optional
+       These parameterize the time-course of the first and second gamma,
+       respectievely.
+
+    n1, n2: int, optional
+       Parameterize the phase delay of the two gammas
+
+    Fs: float
+       The sampling rate (presumably in Hz).
+
+    Glover GH (1999) Deconvolution of Impulse Response in Event-Related BOLD
+    fMRI. NeuroImage 9: 416 - 429.
+
+    """
+
+    return (gamma(duration, A1, tau1, n1, delta, Fs) -
+            gamma(duration, A2, tau2, n2, delta, Fs))
+
+def two_sin(A, B, tau1, f1, tau2, f2, t_max, Fs=1.0):
+    r"""
+
+    HRF based on Polonsky (2000):
 
     .. math::
 
