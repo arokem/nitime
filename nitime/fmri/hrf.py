@@ -1,3 +1,15 @@
+"""
+
+A collection of representations of the hemodynamic response function.
+
+All these functions should have 'duration' as their first input (as a
+positional argument. The other arguments are all key-word arguments, standing
+for fit parameters of the HRF, with 'Fs' a key-word argumanet determining the
+sampling rate. This common interface should help generate flexible fitting
+algorithms which would accept any of these as input.
+
+"""
+
 import numpy as np
 from scipy.misc import factorial
 
@@ -84,10 +96,10 @@ def diff_of_gammas(duration, delta=2.0, A1=1.0, tau1=1.1, n1=5,
                    A2=0.4, tau2=0.9, n2=12, Fs=1.0):
     """
 
-    HRF function based on two gammas, one for the upshoot and one for the
-    subsequent undershoot. Based loosely on Glover (1999). Note that this
-    implementation is literally a difference of two gamma functions, with one
-    common delay.
+    HRF function based on the difference of two gammas, one for the upshoot and
+    one for the subsequent undershoot. Based loosely on Glover (1999). Note
+    that this implementation is literally a difference of two gamma functions,
+    with one common delay.
 
     Parameters
     ----------
@@ -120,7 +132,66 @@ def diff_of_gammas(duration, delta=2.0, A1=1.0, tau1=1.1, n1=5,
     return (gamma(duration, A1, tau1, n1, delta, Fs) -
             gamma(duration, A2, tau2, n2, delta, Fs))
 
-def two_sin(A, B, tau1, f1, tau2, f2, t_max, Fs=1.0):
+
+def two_gamma(duration, a1=6.0, b1=0.9, a2=12.0, b2=0.9, c=0.35, Fs=1.0):
+    """
+
+    The canonical two-gamma HRF, based on Glover (1999), but taken directly
+    from Harvey and Dumoulin (2011) and the defaults are taken from the methods
+    section of that paper.
+
+    Parameters
+    ----------
+
+    duration: float
+        In units of 1/Fs
+
+    a1, a2: float
+        Time-scale parameters for the upswing and post-undershoot respectively
+
+    b1, b2:
+
+
+    c:
+
+    Returns
+    -------
+
+    Note
+    ----
+
+    This implements:
+    ..math::
+
+        h(t) = (t/d_1)^{a_1} e^{(-t-d_1)/b_1} - c(t/d_2)^{a_2} e (-(t-d_2)/b2)
+
+    Note that, to constrain the degrees of freedom in fitting this function, we
+    raise and error whenever d1 > d2 and whenever c < 0.
+
+    Glover GH (1999) Deconvolution of Impulse Response in Event-Related BOLD
+    fMRI. NeuroImage 9: 416 - 429.
+
+    Harvey BM and Dumoulin SO (2011). The relationship between cortical
+    magnification factor and population receptive field size in human visual
+    cortex: constancies in cortical architecture. J Neurosci: 31: 13604-13612
+
+    """
+
+    d1 = a1 * b1
+    d2 = a2 * b2
+    if d1 >= d2:
+        raise ValueError("d1 = %s, d2 = %s, but must have d1 < d2"%(d1,d2))
+    if c < 0:
+        raise ValueError("c = %s, but must be smaller than 0"%c)
+
+    t = np.linspace(0, duration, duration * Fs)
+
+    return ((t/d1)**a1 * np.exp(-(t-d1)/b1) -
+            c * (t/d2)**a2 * np.exp(-(t-d2)/b2))
+
+
+
+def two_sin(duration, A, B, tau1, f1, tau2, f2, Fs=1.0):
     r"""
 
     HRF based on Polonsky (2000):

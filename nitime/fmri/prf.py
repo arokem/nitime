@@ -133,7 +133,7 @@ def cos_grating(n_x=default_nx, n_y=default_ny, x0=default_nx/2,
     return np.cos(sf * (x * np.cos(rad) - y * np.sin(rad)) + phase )
 
 def gabor(n_x=default_nx, n_y=default_ny, x0=default_nx/2, y0=default_ny/2,
-          ori=0, sd=default_sd, sf=0.1, phase=0, carrier = sin_grating):
+          ori=0, sd=default_sd, sf=0.1, phase=0, carrier=sin_grating):
     """
 
     A Gabor filter (A multiple of a sin/cos with a Gaussian).
@@ -171,7 +171,6 @@ def gabor(n_x=default_nx, n_y=default_ny, x0=default_nx/2, y0=default_ny/2,
     gauss = gaussian(n_x, n_y, x0, y0, sd_x=sd, sd_y=sd)
 
     return gauss * wave
-
 
 def response(stim,p,h):
     """
