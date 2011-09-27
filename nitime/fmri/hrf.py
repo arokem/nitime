@@ -14,9 +14,8 @@ import numpy as np
 from scipy.misc import factorial
 
 
-def gamma(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
-    r"""A gamma function hrf model, with two parameters, based on
-    [Boynton1996]_
+def gamma(duration, A=1.0, tau=1.08, n=3, delta=2.05, Fs=1.0):
+    r"""A gamma function hrf model, with two parameters, based on Boynton (1996)
 
 
     Parameters
@@ -63,9 +62,6 @@ def gamma(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
     Human V1. J Neurosci 16: 4207-4221
 
     """
-    # XXX Maybe change to take out the time (Fs, duration, etc) from this and
-    # instead implement this in units of sampling interval (pushing the time
-    # aspect to the higher level)?
     if type(n) is not int:
         print ('fmri.hrf.gamma received unusual input, converting n from %s to %i'
                % (str(n), int(n)))
@@ -81,14 +77,15 @@ def gamma(duration, A=1., tau=1.08, n=3, delta=2.05, Fs=1.0):
         e_s = 'in fmri.hrf.gamma, delta cannot be larger than the duration'
         raise ValueError(e_s)
 
-    t_max = duration - delta
+    t = np.linspace(1, duration, duration * Fs) - 1
 
-    t = np.hstack([np.zeros((delta * Fs)), np.linspace(0, t_max, t_max * Fs)])
-
-    t_tau = t / tau
+    t_tau = (t-delta) / tau
 
     h = (t_tau ** (n - 1) * np.exp(-1 * (t_tau)) /
          (tau * factorial(n - 1)))
+
+    # Set values before the zero time to null:
+    h[(t-delta)<0] = 0
 
     return A * h / max(h)
 
@@ -150,12 +147,14 @@ def two_gamma(duration, a1=6.0, b1=0.9, a2=12.0, b2=0.9, c=0.35, Fs=1.0):
         Time-scale parameters for the upswing and post-undershoot respectively
 
     b1, b2:
-
+        Time-scale parameters for the upswing and post-undershoot respectively
 
     c:
+       Relative amplitude parameter for the undershoot
 
     Returns
     -------
+    array: the hrf
 
     Note
     ----
@@ -184,17 +183,47 @@ def two_gamma(duration, a1=6.0, b1=0.9, a2=12.0, b2=0.9, c=0.35, Fs=1.0):
     if c < 0:
         raise ValueError("c = %s, but must be smaller than 0"%c)
 
-    t = np.linspace(0, duration, duration * Fs)
+    t = np.linspace(1, duration, duration * Fs) - 1
 
     return ((t/d1)**a1 * np.exp(-(t-d1)/b1) -
             c * (t/d2)**a2 * np.exp(-(t-d2)/b2))
 
 
 
-def two_sin(duration, A, B, tau1, f1, tau2, f2, Fs=1.0):
+def two_sin(duration, A=1, B=0.1, tau1=7.22, f1=0.03, tau2=7.4, f2=0.12, Fs=1.0):
     r"""
 
-    HRF based on Polonsky (2000):
+    HRF based on Polonsky (2000), constructed from exponentials of two
+    sinusoidal functions.
+
+    Parameters
+    ----------
+    duration: float
+       In units of 1/Fs
+
+    A: float
+        Amplitde parameter
+
+    B: float
+        Relative amplitude parameter for the second sinusoid.
+
+    tau1, tau2: float
+        Timing parameters for exp1 and exp2.
+
+    f1, f2: float
+        Frequency parameters for sin1 and sin2.
+
+    Fs: float
+        The sampling rate.
+
+    Returns
+    -------
+    array: The HRF.
+
+    Note
+    ----
+
+    This implements:
 
     .. math::
 
@@ -206,9 +235,8 @@ def two_sin(duration, A, B, tau1, f1, tau2, f2, Fs=1.0):
     perception during binocular rivalry. Nature Neuroscience 3: 1153-1159
 
     """
-    sampling_interval = 1 / float(Fs)
 
-    t = np.arange(0, t_max, sampling_interval)
+    t = np.linspace(1, duration, duration * Fs) - 1
 
     h = (np.exp(-t / tau1) * np.sin(2 * np.pi * f1 * t) -
             (B * np.exp(-t / tau2) * np.sin(2 * np.pi * f2 * t)))
