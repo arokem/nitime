@@ -2,6 +2,7 @@ import numpy as np
 import numpy.testing as npt
 
 import nitime.fmri.prf as prf
+import nitime.fmri.hrf as hrf
 
 def test_norms():
     """
@@ -74,8 +75,44 @@ def test_response():
     stim = np.random.randn(n,m,t)
     p = prf.gabor(n,m)
 
-    # The simplest call, no static non-linearity, no
-    prf.response(stim,p)
+    # The simplest call, no static non-linearity, no HRF:
+    r1 = prf.response(stim,p)
 
     # Static non-linearity, but no hrf:
-    prf.response(stim,p,stat_non_lin=prf.exponent,non_lin_params=dict(n=0.5))
+    r2 = prf.response(stim,p,stat_non_lin=prf.exponent,non_lin_params=dict(n=0.5))
+
+    # HRF function, but no static non-linearity:
+    r3 = prf.response(stim,p,h=hrf.gamma, h_dur=33, h_params=dict(tau=1.5, Fs=0.5))
+
+    # HRF vector and no static non-linearity:
+    r4 = prf.response(stim,p,h=hrf.gamma(33,tau=1.5,Fs=0.5))
+
+    # These two last ones should be equal:
+    npt.assert_equal(r3,r4)
+
+    # The full monty:
+    r5 = prf.response(stim,p,
+                      h=hrf.gamma, h_dur=33, h_params=dict(tau=1.5, Fs=0.5),
+                      stat_non_lin=prf.exponent, non_lin_params=dict(n=0.5))
+
+def test_errfunc():
+    """
+    Testing that the error-function does what it's supposed to.
+
+    """
+    stim_dur = 180
+    stim = np.random.randn(100,100,stim_dur)
+    real_p = prf.gaussian(100,100)
+    real_h = hrf.gamma(33)
+    bold = prf.response(stim,real_p,real_h)
+
+    e = prf.err_func(bold, stim, prf.gaussian, hrf.gamma)
+
+    # In this case, the prf and hrf are right on, so there should be no error:
+    npt.assert_equal(np.all(e==0),True)
+
+    # Now move the PRF slightly away:
+    real_p = prf.gaussian(100,100,x0=60)
+    bold = prf.response(stim,real_p,real_h)
+
+    e = prf.err_func(bold, stim, prf.gaussian, hrf.gamma)

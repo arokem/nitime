@@ -232,13 +232,17 @@ def response(stim, p, h=None, h_dur=None, h_params=None, stat_non_lin=None,
 
     if non_lin_params is None:
         # Just make up a dummy dict:
-        non_lin_params = dict(dummy=None)
+        non_lin_params = dict(kwargs=None)
 
+    # Reshape these, before performing the cross-multiplication:
+    # For stimulus, time is the last dimension and remains:
     stim_re = np.matrix(stim.reshape(np.prod(stim.shape[:-1]),stim.shape[-1]))
+    # For the PRF, both dims are space, so we ravel:
     p_re = np.matrix(p.ravel())
 
+    # Cross-multiply the matrices and apply the static non-linearity:
     neural_response = stat_non_lin(np.array(stim_re.T * p_re.T).squeeze(),
-                                   non_lin_params)
+                                   **non_lin_params)
 
     # If no h function/vector is provided, the output is just the neural response:
     if h is None:
@@ -247,7 +251,7 @@ def response(stim, p, h=None, h_dur=None, h_params=None, stat_non_lin=None,
         # If it is a function, we need to generate the vector of values for the
         # convolution:
         if callable(h):
-            h = h(h_dur, h_params)
+            h = h(h_dur, **h_params)
 
         # Now do the convolution with the result of that operation:
         bold_response = np.convolve(neural_response, h)
@@ -383,13 +387,38 @@ def projection_matrix(A, norm=None):
     return np.eye(A.shape[0]) - A * ols_matrix(A, norm)
 
 
-def exponent(x, kwargs):
+def exponent(x, n=None):
     """
 
     A simple static non-linearity for :func:`response`
 
     """
-    if kwargs is None:
+    if n is None:
         return x
     else:
-        return x ** kwargs['n']
+        return x ** n
+
+
+def err_func(bold, stim, prf, hrf, prf_params=None, hrf_params=None,
+             extra_params=None, non_lin=None, non_lin_params=None):
+    """
+    This is the error-function to optimize on.
+
+    Given BOLD data from a voxel, prf starting params and hrf starting params,
+    find the best fit params for these factors.
+
+    bold, stim are given, but the rest should be fit.
+
+    """
+
+    p = prf(n_x=stim.shape[0], n_y=stim.shape[1])
+
+    if callable(hrf):
+        h = hrf(33)
+
+    r = response(stim, p, h=h, h_dur=33,
+                 h_params=hrf_params, stat_non_lin=non_lin,
+                 non_lin_params=non_lin_params)
+
+    # This is the error:
+    return r - bold
