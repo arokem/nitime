@@ -9,7 +9,10 @@ import sys
 if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
 
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 # Get version and release info, which is all stored in nitime/version.py
 ver_file = os.path.join('nitime', 'version.py')
